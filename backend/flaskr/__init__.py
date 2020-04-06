@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 import random
 
-from models import setup_db, Question, Category
+from models import setup_db, Question, Category, db
 
 QUESTIONS_PER_PAGE = 10
 
@@ -21,25 +21,70 @@ def create_app(test_config=None):
   @TODO: Use the after_request decorator to set Access-Control-Allow
   '''
 
+
+  '''
+  Helper function to paginate questions 
+  '''
+  def paginate_questions(request, selection):
+    page = request.args.get('page', 1, type=int)
+    start = (page - 1) * QUESTIONS_PER_PAGE
+    end = start + QUESTIONS_PER_PAGE
+
+    questions = [q.format() for q in selection]
+    current_qs = questions[start:end]
+    return current_qs
+  
+  '''
+  Helper function to get categories
+  '''
+  def get_categories():
+    categories = Category.query.order_by(Category.id).all()
+    categories = [c.format() for c in categories]
+    categories = {k: v for d in categories for k, v in d.items()}
+    return categories
+
   '''
   @TODO: 
   Create an endpoint to handle GET requests 
   for all available categories.
   '''
-
+  @app.route("/categories", methods=["GET"])
+  def retrieve_categories():
+    categories = get_categories()
+    return jsonify({
+      'success': True,
+      'categories': categories,
+      'current_category': None,
+      })
 
   '''
   @TODO: 
   Create an endpoint to handle GET requests for questions, 
   including pagination (every 10 questions). 
   This endpoint should return a list of questions, 
-  number of total questions, current category, categories. 
+  number of total questions, current category, categories.
 
   TEST: At this point, when you start the application
   you should see questions and categories generated,
   ten questions per page and pagination at the bottom of the screen for three pages.
   Clicking on the page numbers should update the questions. 
   '''
+  @app.route("/questions", methods=["GET"])
+  def retrieve_questions():
+    selection = Question.query.order_by(Question.id).all()
+    current_qs = paginate_questions(request, selection)
+    if len(current_qs) == 0:
+      abort(404)
+
+    categories = get_categories()
+
+    return jsonify({
+      'success': True,
+      'questions': current_qs,
+      'total_questions': len(selection),
+      'categories': categories,
+      'current_category': None,
+      })
 
   '''
   @TODO: 
@@ -48,6 +93,13 @@ def create_app(test_config=None):
   TEST: When you click the trash icon next to a question, the question will be removed.
   This removal will persist in the database and when you refresh the page. 
   '''
+  @app.route("/questions/<int:qid>", methods=["DELETE"])
+  def delete_question(qid):
+    q = Question.query.filter(Question.id==qid).delete()
+    db.session.commit()
+    return jsonify({
+      'success': True
+      })
 
   '''
   @TODO: 
@@ -59,6 +111,16 @@ def create_app(test_config=None):
   the form will clear and the question will appear at the end of the last page
   of the questions list in the "List" tab.  
   '''
+  @app.route("/questions", methods=["POST"])
+  def create_question():
+    body = request.get_json()
+    new_q = Question(**body)
+    db.session.add(new_q)
+    db.session.commit()
+
+    return jsonify({
+      'success': True
+    })
 
   '''
   @TODO: 
@@ -70,6 +132,19 @@ def create_app(test_config=None):
   only question that include that string within their question. 
   Try using the word "title" to start. 
   '''
+  @app.route("/questions/search", methods=["POST"])
+  def search_questions():
+    search_term = request.get_json()['searchTerm']
+    selection = Question.query.filter(Question.question.ilike(f'%{search_term}%')).all()
+    current_qs = paginate_questions(request, selection)
+
+
+    return jsonify({
+      'success': True,
+      'questions': current_qs,
+      'total_questions': len(selection),
+      'current_category': None,
+    })
 
   '''
   @TODO: 
@@ -79,6 +154,19 @@ def create_app(test_config=None):
   categories in the left column will cause only questions of that 
   category to be shown. 
   '''
+  @app.route("/categories/<int:cid>/questions", methods=["GET"])
+  def retrieve_category_questions(cid):
+    selection = Question.query.filter(Question.category==cid).all()
+    current_qs = paginate_questions(request, selection)
+    if len(current_qs) == 0:
+      abort(404)
+
+    return jsonify({
+      'success': True,
+      'questions': current_qs,
+      'total_questions': len(selection),
+      'current_category': cid
+      })
 
 
   '''
@@ -92,6 +180,30 @@ def create_app(test_config=None):
   one question at a time is displayed, the user is allowed to answer
   and shown whether they were correct or not. 
   '''
+  @app.route("/quizzes", methods=["POST"])
+  def play_quiz():
+    body = request.get_json()
+    prev_qs = body['previous_questions']
+    cid = body['quiz_category']['id']
+    print(prev_qs, cid)
+
+    if cid == 0:
+      selection = Question.query.filter(Question.id.notin_(prev_qs)).all()
+    else:
+      selection = Question.query.filter(Question.category==cid, Question.id.notin_(prev_qs)).all()
+    
+    current_qs = [q.format() for q in selection]
+
+    if selection:
+      q = current_qs[random.randint(0, len(selection)-1)]
+    else:
+      q = None
+
+    return jsonify({
+      'success': True,
+      'question': q,
+      })
+
 
   '''
   @TODO: 
