@@ -16,10 +16,15 @@ def create_app(test_config=None):
   '''
   @TODO: Set up CORS. Allow '*' for origins. Delete the sample route after completing the TODOs
   '''
-
+  CORS(app)
   '''
   @TODO: Use the after_request decorator to set Access-Control-Allow
   '''
+  @app.after_request
+  def after_request(response):
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, DELETE')
+    return response
 
 
   '''
@@ -98,7 +103,7 @@ def create_app(test_config=None):
     q = Question.query.filter(Question.id==qid).delete()
     db.session.commit()
     return jsonify({
-      'success': True
+      'success': True,
       })
 
   '''
@@ -113,14 +118,18 @@ def create_app(test_config=None):
   '''
   @app.route("/questions", methods=["POST"])
   def create_question():
-    body = request.get_json()
-    new_q = Question(**body)
-    db.session.add(new_q)
-    db.session.commit()
+    try:
+      body = request.get_json()
+      new_q = Question(**body)
+      db.session.add(new_q)
+      db.session.commit()
 
-    return jsonify({
-      'success': True
-    })
+      return jsonify({
+        'success': True,
+        })
+
+    except:
+      abort(422)
 
   '''
   @TODO: 
@@ -182,27 +191,31 @@ def create_app(test_config=None):
   '''
   @app.route("/quizzes", methods=["POST"])
   def play_quiz():
-    body = request.get_json()
-    prev_qs = body['previous_questions']
-    cid = body['quiz_category']['id']
-    print(prev_qs, cid)
+    try:
+      body = request.get_json()
+      prev_qs = body['previous_questions']
+      cid = body['quiz_category']['id']
+      print(prev_qs, cid)
 
-    if cid == 0:
-      selection = Question.query.filter(Question.id.notin_(prev_qs)).all()
-    else:
-      selection = Question.query.filter(Question.category==cid, Question.id.notin_(prev_qs)).all()
-    
-    current_qs = [q.format() for q in selection]
+      if cid == 0:
+        selection = Question.query.filter(Question.id.notin_(prev_qs)).all()
+      else:
+        selection = Question.query.filter(Question.category==cid, Question.id.notin_(prev_qs)).all()
+      
+      current_qs = [q.format() for q in selection]
 
-    if selection:
-      q = current_qs[random.randint(0, len(selection)-1)]
-    else:
-      q = None
+      if selection:
+        q = current_qs[random.randint(0, len(selection)-1)]
+      else:
+        q = None
 
-    return jsonify({
-      'success': True,
-      'question': q,
-      })
+      return jsonify({
+        'success': True,
+        'question': q,
+        })
+
+    except:
+      abort(422)
 
 
   '''
@@ -210,6 +223,37 @@ def create_app(test_config=None):
   Create error handlers for all expected errors 
   including 404 and 422. 
   '''
+  @app.errorhandler(404)
+  def not_found(error):
+    return jsonify({
+      'success': False,
+      'error': 404,
+      'message': "Resource not found"
+    }), 404
+  
+  @app.errorhandler(405)
+  def not_found(error):
+    return jsonify({
+      'success': False,
+      'error': 405,
+      'message': "Method not allowed"
+    }), 405
+  
+  @app.errorhandler(400)
+  def not_found(error):
+    return jsonify({
+      'success': False,
+      'error': 400,
+      'message': "Bad request"
+    }), 400
+  
+  @app.errorhandler(422)
+  def not_found(error):
+    return jsonify({
+      'success': False,
+      'error': 422,
+      'message': "Unprocessable entity"
+    }), 422
   
   return app
 
