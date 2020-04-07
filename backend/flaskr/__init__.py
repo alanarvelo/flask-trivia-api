@@ -104,6 +104,7 @@ def create_app(test_config=None):
     db.session.commit()
     return jsonify({
       'success': True,
+      'id': qid,
       })
 
   '''
@@ -239,13 +240,13 @@ def create_app(test_config=None):
       'message': "Method not allowed"
     }), 405
   
-  @app.errorhandler(400)
-  def not_found(error):
-    return jsonify({
-      'success': False,
-      'error': 400,
-      'message': "Bad request"
-    }), 400
+  # @app.errorhandler(400)
+  # def not_found(error):
+  #   return jsonify({
+  #     'success': False,
+  #     'error': 400,
+  #     'message': "Bad request"
+  #   }), 400
   
   @app.errorhandler(422)
   def not_found(error):

@@ -89,7 +89,7 @@ class TriviaTestCase(unittest.TestCase):
 
     # # @app.route("/quizzes", methods=["POST"])
     def test_quizz_play(self):
-        res = self.client().post('/quizzes', json={'previous_questions': [], 'quiz_category': {'type': 'Science', 'id': 5}})
+        res = self.client().post('/quizzes', json={"previous_questions": [], "quiz_category": {"type": "Science", "id": 5}})
         data = json.loads(res.data)
 
         self.assertEqual(res.status_code, 200)
